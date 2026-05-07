@@ -14,12 +14,13 @@ load_dotenv()
 app = FastAPI(
     title="Truce API",
     description="Backend API with Live Real-time Scraping for the Egyptian Market",
-    version="2.0.2"
+    version="2.0.3"
 )
 
 # Constants for Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mgqcolwglaavwazjwjir.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE")
+# Using the Legacy Anon Key for better compatibility with Supabase client libraries
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ncWNvbHdnbGFhdndhemp3amlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzM0MTUsImV4cCI6MjA5MjM0OTQxNX0.V_Y6Of9rIPqwHCanKgpYNRcFAOWClfFiSPgG5MUF1VM")
 
 _supabase_client = None
 
@@ -64,7 +65,7 @@ def transform_product_price(item, index: int):
 
 @app.get("/")
 def read_root():
-    return {"message": "Truce API v2.0.2 - Live Scraping Active"}
+    return {"message": "Truce API v2.0.3 - Live Scraping Active"}
 
 @app.get("/products")
 async def get_products(
@@ -79,19 +80,16 @@ async def get_products(
         # If the user is searching for a specific product, we trigger LIVE SCRAPING
         if search and len(search) > 2:
             print(f"[*] Triggering Live Search for: {search}")
-            # Use run_in_executor to avoid blocking the event loop
             loop = asyncio.get_event_loop()
             jumia_data = await loop.run_in_executor(None, scraper.scrape_jumia_live, search)
             amazon_data = await loop.run_in_executor(None, scraper.scrape_amazon_live, search)
 
-            # Combine and interleave
             combined = []
             max_len = max(len(jumia_data), len(amazon_data))
             for i in range(max_len):
                 if i < len(jumia_data): combined.append(jumia_data[i])
                 if i < len(amazon_data): combined.append(amazon_data[i])
 
-            # Re-index Sr No
             for i, item in enumerate(combined):
                 item["Sr No"] = i + 1 + offset
 
@@ -108,13 +106,12 @@ async def get_products(
         if brand: query = query.ilike("product.brand", f"%{brand}%")
         if store: query = query.ilike("store.name_en", f"%{store}%")
 
-        query = query.range(offset, offset + 100) # Fetch more for variety
+        query = query.range(offset, offset + 100)
         response = query.execute()
         data = response.data
 
         if not data: return []
 
-        # Priority sort and transform
         valid_data = [item for item in data if item.get("product")]
         valid_data.sort(key=lambda x: (x.get("product", {}).get("image_url") is not None), reverse=True)
 
@@ -122,8 +119,6 @@ async def get_products(
         return result
 
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
         return {"error": str(e)}
 
 @app.get("/categories")
