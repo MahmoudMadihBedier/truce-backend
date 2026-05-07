@@ -1,0 +1,29 @@
+name: Daily Product Scraper
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch:      # Allows manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install supabase python-dotenv requests beautifulsoup4
+
+      - name: Run scraper
+        env:
+          SUPABASE_URL: "https://mgqcolwglaavwazjwjir.supabase.co"
+          SUPABASE_KEY: "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE"
+        run: python scraper.py
