@@ -10,7 +10,7 @@ load_dotenv()
 app = FastAPI(
     title="Truce API",
     description="Backend API for Truce mobile app - Egyptian Market Price Tracker",
-    version="1.4.0"
+    version="1.5.0"
 )
 
 # Constants for Supabase
@@ -42,10 +42,7 @@ def transform_product_price(item, index: int):
     if discount_pct is None and isinstance(final_mrp, float) and isinstance(final_price, float) and final_mrp > final_price:
         discount_pct = round(((final_mrp - final_price) / final_mrp) * 100)
 
-    # Priority: Specific product link > Store base link
     product_url = item.get("product_url") or product.get("source_url") or store_urls.get(store_name, "N/A")
-
-    # Priority: Specific image > Placeholder
     image_url = product.get("image_url") or "https://via.placeholder.com/300?text=No+Image"
 
     return {
@@ -83,10 +80,7 @@ async def get_products(
     offset: int = 0
 ):
     try:
-        # Fetch a larger chunk from the database to ensure we see different stores
-        # Then we'll pick the items we want.
-        fetch_limit = 200 if not (search or category or brand or store) else 50
-
+        # Strategy: Prioritize items with image_url and product_url
         query = supabase.table("product_prices").select(
             "*, product:products(*, category:categories(*)), store:stores(*)"
         )
@@ -100,8 +94,8 @@ async def get_products(
         if store:
             query = query.ilike("store.name_en", f"%{store}%")
 
-        # To avoid always getting the same Amazon products first,
-        # we fetch a larger range and shuffle.
+        # Fetch enough to filter and interleave
+        fetch_limit = 300
         query = query.range(offset, offset + fetch_limit - 1)
 
         response = query.execute()
@@ -110,33 +104,42 @@ async def get_products(
         if not data:
             return []
 
-        # Interleave stores for variety
-        store_groups = {}
-        for item in data:
-            if item.get("product"):
-                s_name = (item.get("store") or {}).get("name_en", "Other")
-                if s_name not in store_groups: store_groups[s_name] = []
-                store_groups[s_name].append(item)
+        # Filter out invalid entries
+        valid_data = [item for item in data if item.get("product")]
 
-        # Shuffle each group to change which products from each store are shown
-        for g in store_groups.values():
-            random.shuffle(g)
+        # Sort so items with images and URLs come first
+        def priority_score(item):
+            score = 0
+            prod = item.get("product") or {}
+            if prod.get("image_url") and "placeholder" not in prod.get("image_url", "").lower():
+                score += 10
+            if item.get("product_url") or prod.get("source_url"):
+                score += 5
+            if item.get("price") is not None:
+                score += 3
+            return score
+
+        valid_data.sort(key=priority_score, reverse=True)
+
+        # Interleave stores for variety among the highest quality results
+        store_groups = {}
+        for item in valid_data:
+            s_name = (item.get("store") or {}).get("name_en", "Other")
+            if s_name not in store_groups: store_groups[s_name] = []
+            store_groups[s_name].append(item)
 
         interleaved = []
         if store_groups:
             max_size = max(len(g) for g in store_groups.values())
             for i in range(max_size):
-                # Shuffle store keys so the order of stores changes in each pass
                 s_names = list(store_groups.keys())
-                random.shuffle(s_names)
-                for s_name in s_names:
+                # For high quality first, we don't shuffle s_names here,
+                # but we could to prevent store bias
+                for s_name in sorted(s_names):
                     if i < len(store_groups[s_name]):
                         interleaved.append(store_groups[s_name][i])
 
-        # Take the requested limit
-        final_list = interleaved[:limit]
-
-        result = [transform_product_price(item, i + offset) for i, item in enumerate(final_list)]
+        result = [transform_product_price(item, i + offset) for i, item in enumerate(interleaved[:limit])]
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
