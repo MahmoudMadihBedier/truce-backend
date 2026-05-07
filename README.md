@@ -2,6 +2,39 @@
 
 This is the backend for the Truce mobile application, focused on tracking product prices in the Egyptian market.
 
+## Base API URL
+
+Once deployed on Render, your API will be available at:
+**`https://truce-backend.onrender.com`**
+
+## API Endpoints for Flutter App
+
+These are the direct endpoints you can use in your Flutter application:
+
+### 1. Get All Products (with Prices)
+Returns a list of products with their current prices, discounts, and store information.
+- **URL**: `https://truce-backend.onrender.com/products`
+- **Method**: `GET`
+- **Query Parameters**:
+  - `search`: (Optional) Search by product name (e.g., `?search=Red Bull`)
+  - `category`: (Optional) Filter by category (e.g., `?category=Beverages`)
+  - `brand`: (Optional) Filter by brand (e.g., `?brand=Koki`)
+  - `store`: (Optional) Filter by store name (e.g., `?store=Carrefour`)
+  - `limit`: (Optional) Number of results to return (default: 20, max: 100)
+  - `offset`: (Optional) For pagination (default: 0)
+
+### 2. Get Categories
+Returns all product categories available in the database.
+- **URL**: `https://truce-backend.onrender.com/categories`
+- **Method**: `GET`
+
+### 3. Get Stores
+Returns all stores tracked by the application.
+- **URL**: `https://truce-backend.onrender.com/stores`
+- **Method**: `GET`
+
+---
+
 ## Features
 
 - **FastAPI Backend**: High-performance API built with Python.
@@ -16,19 +49,14 @@ This is the backend for the Truce mobile application, focused on tracking produc
 2. Connect this repository.
 3. Choose **Python 3** as the runtime.
 4. Set the following environment variables in the Render dashboard:
-   - `SUPABASE_URL`: Your Supabase project URL.
-   - `SUPABASE_KEY`: Your Supabase publishable API key (anon key).
+   - `SUPABASE_URL`: https://mgqcolwglaavwazjwjir.supabase.co
+   - `SUPABASE_KEY`: sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE
 5. Render will automatically use the `Procfile` and `requirements.txt` to build and start the server.
 
 ## Daily Updates (GitHub Actions)
 
-The repository includes a GitHub Action (`.github/workflows/daily_scraper.yml`) that runs the `scraper.py` script every day at midnight.
-
-To enable this:
-1. Go to your GitHub repository **Settings** > **Secrets and variables** > **Actions**.
-2. Add the following secrets:
-   - `SUPABASE_URL`
-   - `SUPABASE_KEY`
+The repository includes a GitHub Action (`.github/workflows/daily_scraper.yml`) that runs the `scraper.py` script every day at midnight for free.
+The credentials for Supabase are already configured in the workflow.
 
 ## Local Development
 
@@ -36,16 +64,7 @@ To enable this:
    ```bash
    pip install -r requirements.txt
    ```
-2. Create a `.env` file with your Supabase credentials.
-3. Run the server:
+2. Run the server:
    ```bash
-   uvicorn main:app --reload
+   SUPABASE_URL=https://mgqcolwglaavwazjwjir.supabase.co SUPABASE_KEY=sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE uvicorn main:app --reload
    ```
-
-## API Documentation
-
-Once running, visit `/docs` or `/redoc` for interactive API documentation.
-
-- `GET /products`: List products with filters (`search`, `category`, `brand`, `store`).
-- `GET /categories`: List available categories.
-- `GET /stores`: List available stores.
