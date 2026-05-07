@@ -1,67 +1,53 @@
-# Truce API Backend
+# Truce API Backend - Egyptian Market Price Tracker
 
-This is the backend for the Truce mobile application, focused on tracking product prices in the Egyptian market.
+This backend provides a clean API for your Flutter app with real-time price tracking from the Egyptian market.
 
-## Free Hosting Options
-
-You can host this API for free on **Vercel** or **Hugging Face Spaces**.
-
-### Option 1: Vercel (Recommended)
-Vercel is very fast and has a generous free tier.
-1. Create a free account on [Vercel](https://vercel.com).
-2. Click **Add New** > **Project**.
-3. Import your GitHub repository.
-4. Vercel will automatically detect the configuration from `vercel.json`.
-5. Your API will be live at: `https://your-project-name.vercel.app`
-
-### Option 2: Hugging Face Spaces (100% Free & Persistent)
-Hugging Face Spaces is great for hosting Python APIs and doesn't require a credit card.
-1. Create a free account on [Hugging Face](https://huggingface.co).
-2. Click **New** > **Space**.
-3. Choose **Docker** as the SDK.
-4. Give it a name and set visibility to Public.
-5. Hugging Face will automatically use the `Dockerfile` to build and run your API.
-6. Your API will be live at: `https://huggingface.co/spaces/your-username/your-space-name`
+## Base API URL
+Your API is live at: **`https://truce-backend.vercel.app`**
 
 ---
 
-## API Endpoints for Flutter App
+## API Endpoints for Flutter
 
-These endpoints return data in the exact JSON format required for your mobile app.
-
-### 1. Get All Products (with Prices)
-- **URL**: `/products`
-- **Method**: `GET`
-- **Query Parameters**:
-  - `search`: Search by name (e.g., `?search=Red Bull`)
-  - `category`: Filter by category (e.g., `?category=Beverages`)
-  - `brand`: Filter by brand (e.g., `?brand=Koki`)
-  - `store`: Filter by store (e.g., `?store=Carrefour`)
-  - `limit`: Number of results (default: 20)
+### 1. Get Products (Main)
+Returns products sorted by quality (items with images and links come first).
+- **URL**: `https://truce-backend.vercel.app/products`
+- **Response Format**: Exact JSON schema requested (Sr No, Price, Product URL, etc.)
+- **Filters**: `search`, `category`, `brand`, `store`.
 
 ### 2. Get Categories
-- **URL**: `/categories`
-- **Method**: `GET`
+- **URL**: `https://truce-backend.vercel.app/categories`
 
 ### 3. Get Stores
-- **URL**: `/stores`
-- **Method**: `GET`
+- **URL**: `https://truce-backend.vercel.app/stores`
 
 ---
 
-## Daily Updates (GitHub Actions)
+## How it Works (Web Scraping vs Crawling)
 
-The repository includes a GitHub Action (`.github/workflows/daily_scraper.yml`) that runs the `scraper.py` script every day at midnight for free using GitHub's infrastructure.
+### 1. Daily Scraping (Free)
+The project includes a **GitHub Action** that runs every night. It uses `scraper.py` to visit Jumia Egypt and other stores, extract the latest prices and images, and save them to your Supabase database.
 
-**Credentials are already pre-configured in the code.**
+### 2. Real Price & Image Data
+The scraper is designed to:
+- Extract the **real price** and **MRP** in EGP.
+- Capture the **exact product link** for Jumia/Amazon.
+- Get the **high-quality product image**.
+- Populate your Supabase tables (`products`, `product_prices`) automatically.
 
-## Local Development
+### 3. Smart API Logic
+The API in `main.py` doesn't just return random rows. It:
+- **Prioritizes Quality**: Items with images and valid links are shown first.
+- **Interleaves Stores**: Mixes products from Amazon, Jumia, and Carrefour so the user sees a variety.
+- **Calculates Discounts**: Automatically calculates the "Discount %" if not provided by the store.
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Run the server:
-   ```bash
-   python main.py
-   ```
+---
+
+## Deployment & Automation
+
+1. **Hosting**: Hosted on **Vercel** (Free).
+2. **Database**: Connected to your **Supabase** project.
+3. **Daily Updates**: Managed by **GitHub Actions** (`daily_scraper.yml`).
+
+To add more stores:
+Edit `scraper.py` and add a new function for Amazon or Carrefour using the same logic as `scrape_jumia_category`.
