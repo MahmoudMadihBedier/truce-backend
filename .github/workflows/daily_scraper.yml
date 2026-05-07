@@ -1,13 +1,15 @@
-name: Daily Product Scraper
+name: Daily Egyptian Market Scraper
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight
-  workflow_dispatch:      # Allows manual trigger
+    - cron: '0 0 * * *'  # Every night at midnight
+  workflow_dispatch:      # Manual trigger
 
 jobs:
-  scrape:
+  scrape_and_update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -18,12 +20,15 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install supabase python-dotenv requests beautifulsoup4
+        run: pip install requests beautifulsoup4
 
-      - name: Run scraper
-        env:
-          SUPABASE_URL: "https://mgqcolwglaavwazjwjir.supabase.co"
-          SUPABASE_KEY: "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE"
+      - name: Run Scraper
         run: python scraper.py
+
+      - name: Commit and push products_data.json
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add products_data.json
+          git commit -m "chore: Update products data [skip ci]" || echo "No changes to commit"
+          git push

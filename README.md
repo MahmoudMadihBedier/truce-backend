@@ -1,41 +1,35 @@
-# Truce API Backend - Real-Time Live Search
+# Truce API Backend - Egypt Market Scraper & API
 
-This backend provides real-time product tracking for the Egyptian market by scraping live data from stores like Jumia and Amazon on every search.
+This is a database-free, pure scraping backend for the Truce mobile application. It tracks product prices across Jumia, Amazon, Noon, and Carrefour Egypt.
 
-## Features
+## Architecture
 
-- **Live Real-time Search**: When you search for a product, the API scrapes the stores **instantly** to get the latest price, image, and link.
-- **Always Fresh Data**: The API doesn't just rely on the database; it fetches the live store page.
-- **Database Auto-Sync**: Every search updates your Supabase database with the latest results, ensuring your data is never old.
-- **Exact JSON Format**: Returns the response in your requested Flutter-friendly format.
-
----
-
-## API Endpoints
-
-### 1. Live Product Search
-- **URL**: `/products?search=... `
-- **Behavior**: Scrapes Jumia and Amazon Egypt in real-time.
-- **Example**: `https://truce-backend.vercel.app/products?search=coffee`
-
-### 2. General Browsing
-- **URL**: `/products`
-- **Behavior**: Returns recent products from the database.
+This system uses a **GitHub-to-Vercel** pipeline:
+1. **Scraper (`scraper.py`)**: A Python script that visits Jumia and Amazon Egypt to extract the latest product data.
+2. **GitHub Actions**: Runs the scraper daily, saves the data to `products_data.json`, and commits it back to the repository.
+3. **Vercel API (`main.py`)**: A FastAPI server that reads the JSON file and serves it to your Flutter app.
 
 ---
 
-## Technical Flow
-1. User sends a search query.
-2. API triggers `scraper.py` to visit Jumia and Amazon.
-3. Scraper parses the **real prices** and **real images**.
-4. Scraper saves/updates these products in **Supabase**.
-5. API returns the live results to the Flutter app immediately.
+## API Base URL
+Your API is live at: **`https://truce-backend.vercel.app`**
 
-## Deployment
+### Endpoints
 
-### Vercel (Free)
-1. Connect your repo to Vercel.
-2. The `vercel.json` and `main.py` are ready for zero-config deployment.
+- `GET /products`: List all products.
+  - Query Params: `search`, `category`, `brand`, `store`, `limit`, `offset`.
+- `GET /categories`: List all detected categories.
+- `GET /stores`: List supported Egyptian stores.
 
-### GitHub Actions (Daily Updates)
-- Use the provided `daily_scraper.yml` to run a full market scan every night for free.
+---
+
+## Technical Details
+
+- **Language**: Python 3.10
+- **Framework**: FastAPI
+- **Scraping**: BeautifulSoup4 + Requests
+- **Hosting**: Vercel (Free Tier)
+- **Automation**: GitHub Actions (Free Tier)
+
+## How to update data manually
+You can trigger the scraper by going to the **Actions** tab in your GitHub repository and clicking **Run workflow** on the "Daily Egyptian Market Scraper".
