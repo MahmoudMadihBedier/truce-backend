@@ -14,12 +14,11 @@ load_dotenv()
 app = FastAPI(
     title="Truce API",
     description="Backend API with Live Real-time Scraping for the Egyptian Market",
-    version="2.0.3"
+    version="2.0.4"
 )
 
 # Constants for Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mgqcolwglaavwazjwjir.supabase.co")
-# Using the Legacy Anon Key for better compatibility with Supabase client libraries
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ncWNvbHdnbGFhdndhemp3amlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzM0MTUsImV4cCI6MjA5MjM0OTQxNX0.V_Y6Of9rIPqwHCanKgpYNRcFAOWClfFiSPgG5MUF1VM")
 
 _supabase_client = None
@@ -27,7 +26,12 @@ _supabase_client = None
 def get_supabase():
     global _supabase_client
     if _supabase_client is None:
-        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        try:
+            # Simple initialization to be compatible with all versions
+            _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        except Exception as e:
+            print(f"Supabase init error: {e}")
+            raise e
     return _supabase_client
 
 def transform_product_price(item, index: int):
@@ -65,7 +69,7 @@ def transform_product_price(item, index: int):
 
 @app.get("/")
 def read_root():
-    return {"message": "Truce API v2.0.3 - Live Scraping Active"}
+    return {"message": "Truce API v2.0.4 - Live Scraping Active"}
 
 @app.get("/products")
 async def get_products(
@@ -77,9 +81,7 @@ async def get_products(
     offset: int = 0
 ):
     try:
-        # If the user is searching for a specific product, we trigger LIVE SCRAPING
         if search and len(search) > 2:
-            print(f"[*] Triggering Live Search for: {search}")
             loop = asyncio.get_event_loop()
             jumia_data = await loop.run_in_executor(None, scraper.scrape_jumia_live, search)
             amazon_data = await loop.run_in_executor(None, scraper.scrape_amazon_live, search)
@@ -95,7 +97,6 @@ async def get_products(
 
             return combined[:limit]
 
-        # FALLBACK: Database search for general browsing
         sb = get_supabase()
         query = sb.table("product_prices").select(
             "*, product:products(*, category:categories(*)), store:stores(*)"
@@ -119,19 +120,26 @@ async def get_products(
         return result
 
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        return {"error": str(e), "trace": traceback.format_exc() if os.environ.get("DEBUG") else None}
 
 @app.get("/categories")
 async def get_categories():
-    sb = get_supabase()
-    res = sb.table("categories").select("*").execute()
-    return res.data
+    try:
+        sb = get_supabase()
+        res = sb.table("categories").select("*").execute()
+        return res.data
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/stores")
 async def get_stores():
-    sb = get_supabase()
-    res = sb.table("stores").select("*").execute()
-    return res.data
+    try:
+        sb = get_supabase()
+        res = sb.table("stores").select("*").execute()
+        return res.data
+    except Exception as e:
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
