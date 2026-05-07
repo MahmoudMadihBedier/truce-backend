@@ -24,6 +24,6 @@ jobs:
 
       - name: Run scraper
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_URL: "https://mgqcolwglaavwazjwjir.supabase.co"
+          SUPABASE_KEY: "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE"
         run: python scraper.py
