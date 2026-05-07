@@ -1,51 +1,41 @@
-# Truce API Backend - Multi-Store Egyptian Market Tracker
+# Truce API Backend - Real-Time Live Search
 
-A comprehensive backend and automated scraping system for tracking product prices across major Egyptian retailers.
+This backend provides real-time product tracking for the Egyptian market by scraping live data from stores like Jumia and Amazon on every search.
 
-## Supported Stores
-- **Jumia Egypt** (Full Scraping)
-- **Amazon Egypt** (Full Scraping)
-- **Noon Egypt** (Search Integration)
-- **Carrefour Egypt** (Search Integration)
+## Features
 
-## API Base URL
-**`https://truce-backend.vercel.app`**
-
-### API Endpoints
-- `GET /products`: Multi-store products with priority sorting (Images & Links first).
-- `GET /categories`: All product categories.
-- `GET /stores`: Tracked stores and their ratings.
+- **Live Real-time Search**: When you search for a product, the API scrapes the stores **instantly** to get the latest price, image, and link.
+- **Always Fresh Data**: The API doesn't just rely on the database; it fetches the live store page.
+- **Database Auto-Sync**: Every search updates your Supabase database with the latest results, ensuring your data is never old.
+- **Exact JSON Format**: Returns the response in your requested Flutter-friendly format.
 
 ---
 
-## Automated Scraper (`scraper.py`)
+## API Endpoints
 
-The scraper is designed to run daily for free via **GitHub Actions**. It handles:
-1. **Multi-Store Logic**: Separate logic for Jumia, Amazon, etc.
-2. **Polite Scraping**: Uses random delays and rotating user-agents to avoid blocks.
-3. **Data Quality**: Captures real prices, original prices (MRP), product images, and direct store links.
-4. **Database Sync**: Automatically upserts data into your Supabase project.
+### 1. Live Product Search
+- **URL**: `/products?search=... `
+- **Behavior**: Scrapes Jumia and Amazon Egypt in real-time.
+- **Example**: `https://truce-backend.vercel.app/products?search=coffee`
 
-### How to Trigger Manually
-1. Go to your GitHub repository.
-2. Click on **Actions**.
-3. Select **Daily Product Scraper**.
-4. Click **Run workflow**.
+### 2. General Browsing
+- **URL**: `/products`
+- **Behavior**: Returns recent products from the database.
+
+---
+
+## Technical Flow
+1. User sends a search query.
+2. API triggers `scraper.py` to visit Jumia and Amazon.
+3. Scraper parses the **real prices** and **real images**.
+4. Scraper saves/updates these products in **Supabase**.
+5. API returns the live results to the Flutter app immediately.
 
 ## Deployment
 
-### 1. API (Vercel)
-- Simply connect your GitHub repo to Vercel.
-- It uses `vercel.json` for zero-config deployment.
+### Vercel (Free)
+1. Connect your repo to Vercel.
+2. The `vercel.json` and `main.py` are ready for zero-config deployment.
 
-### 2. Scraper (GitHub Actions)
-- Configured in `.github/workflows/daily_scraper.yml`.
-- **Credentials** for your Supabase project are already integrated.
-
----
-
-## Technical Details
-- **Backend**: FastAPI (Python)
-- **Scraper**: BeautifulSoup4 + Requests
-- **Database**: Supabase (PostgreSQL)
-- **Automation**: GitHub Actions
+### GitHub Actions (Daily Updates)
+- Use the provided `daily_scraper.yml` to run a full market scan every night for free.
