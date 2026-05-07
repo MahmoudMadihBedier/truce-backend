@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/app/main.py", line 9, in <module>
+    from scraper import scrape_jumia_live, scrape_amazon_live
+  File "/app/scraper.py", line 5, in <module>
+    from bs4 import BeautifulSoup
+ModuleNotFoundError: No module named 'bs4'
