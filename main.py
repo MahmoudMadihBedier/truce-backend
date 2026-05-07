@@ -1,26 +1,33 @@
 import os
 import random
+import asyncio
 from typing import List, Optional, Union
 from fastapi import FastAPI, Query, HTTPException
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Import our live scrapers
-from scraper import scrape_jumia_live, scrape_amazon_live
+import scraper
 
 load_dotenv()
 
 app = FastAPI(
     title="Truce API",
     description="Backend API with Live Real-time Scraping for the Egyptian Market",
-    version="2.0.0"
+    version="2.0.2"
 )
 
 # Constants for Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mgqcolwglaavwazjwjir.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+_supabase_client = None
+
+def get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _supabase_client
 
 def transform_product_price(item, index: int):
     product = item.get("product") or {}
@@ -57,7 +64,7 @@ def transform_product_price(item, index: int):
 
 @app.get("/")
 def read_root():
-    return {"message": "Truce API v2.0 - Live Scraping Active"}
+    return {"message": "Truce API v2.0.2 - Live Scraping Active"}
 
 @app.get("/products")
 async def get_products(
@@ -72,12 +79,15 @@ async def get_products(
         # If the user is searching for a specific product, we trigger LIVE SCRAPING
         if search and len(search) > 2:
             print(f"[*] Triggering Live Search for: {search}")
-            jumia_data = scrape_jumia_live(search)
-            amazon_data = scrape_amazon_live(search)
+            # Use run_in_executor to avoid blocking the event loop
+            loop = asyncio.get_event_loop()
+            jumia_data = await loop.run_in_executor(None, scraper.scrape_jumia_live, search)
+            amazon_data = await loop.run_in_executor(None, scraper.scrape_amazon_live, search)
 
             # Combine and interleave
             combined = []
-            for i in range(max(len(jumia_data), len(amazon_data))):
+            max_len = max(len(jumia_data), len(amazon_data))
+            for i in range(max_len):
                 if i < len(jumia_data): combined.append(jumia_data[i])
                 if i < len(amazon_data): combined.append(amazon_data[i])
 
@@ -88,7 +98,8 @@ async def get_products(
             return combined[:limit]
 
         # FALLBACK: Database search for general browsing
-        query = supabase.table("product_prices").select(
+        sb = get_supabase()
+        query = sb.table("product_prices").select(
             "*, product:products(*, category:categories(*)), store:stores(*)"
         )
 
@@ -111,16 +122,20 @@ async def get_products(
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        print(traceback.format_exc())
+        return {"error": str(e)}
 
 @app.get("/categories")
 async def get_categories():
-    res = supabase.table("categories").select("*").execute()
+    sb = get_supabase()
+    res = sb.table("categories").select("*").execute()
     return res.data
 
 @app.get("/stores")
 async def get_stores():
-    res = supabase.table("stores").select("*").execute()
+    sb = get_supabase()
+    res = sb.table("stores").select("*").execute()
     return res.data
 
 if __name__ == "__main__":
