@@ -3,7 +3,6 @@ import random
 import asyncio
 from typing import List, Optional, Union
 from fastapi import FastAPI, Query, HTTPException
-from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Import our live scrapers
@@ -14,62 +13,12 @@ load_dotenv()
 app = FastAPI(
     title="Truce API",
     description="Backend API with Live Real-time Scraping for the Egyptian Market",
-    version="2.0.4"
+    version="3.0.0"
 )
-
-# Constants for Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mgqcolwglaavwazjwjir.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ncWNvbHdnbGFhdndhemp3amlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzM0MTUsImV4cCI6MjA5MjM0OTQxNX0.V_Y6Of9rIPqwHCanKgpYNRcFAOWClfFiSPgG5MUF1VM")
-
-_supabase_client = None
-
-def get_supabase():
-    global _supabase_client
-    if _supabase_client is None:
-        try:
-            # Simple initialization to be compatible with all versions
-            _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        except Exception as e:
-            print(f"Supabase init error: {e}")
-            raise e
-    return _supabase_client
-
-def transform_product_price(item, index: int):
-    product = item.get("product") or {}
-    category = product.get("category") or {}
-    store = item.get("store") or {}
-
-    store_name = store.get("name_en", "N/A")
-    mrp_val = item.get("mrp")
-    price_val = item.get("price")
-    discount_pct = item.get("discount_percent")
-
-    final_price = float(price_val) if price_val is not None else "N/A"
-    final_mrp = float(mrp_val) if mrp_val is not None else (final_price if final_price != "N/A" else "N/A")
-
-    if discount_pct is None and isinstance(final_mrp, float) and isinstance(final_price, float) and final_mrp > final_price:
-        discount_pct = round(((final_mrp - final_price) / final_mrp) * 100)
-
-    return {
-        "Sr No": index + 1,
-        "Product URL": item.get("product_url") or product.get("source_url") or "N/A",
-        "Product ID": product.get("id", "N/A"),
-        "Product Name": product.get("name_en") or "N/A",
-        "Category": category.get("name_en") if category else "N/A",
-        "Brand": product.get("brand") or "N/A",
-        "MRP (EGP)": final_mrp,
-        "Discount %": discount_pct if discount_pct is not None else "N/A",
-        "Price": final_price,
-        "Description": product.get("description_en") or "N/A",
-        "Product Image URL": product.get("image_url") or "N/A",
-        "Store Name": store_name,
-        "Location": store.get("location_name_en") or "N/A",
-        "Availability Status": "In Stock" if item.get("is_available") else "Out of Stock"
-    }
 
 @app.get("/")
 def read_root():
-    return {"message": "Truce API v2.0.4 - Live Scraping Active"}
+    return {"message": "Truce API v3.0.0 - Pure Live Scraping (No Database)"}
 
 @app.get("/products")
 async def get_products(
@@ -81,65 +30,57 @@ async def get_products(
     offset: int = 0
 ):
     try:
-        if search and len(search) > 2:
-            loop = asyncio.get_event_loop()
-            jumia_data = await loop.run_in_executor(None, scraper.scrape_jumia_live, search)
-            amazon_data = await loop.run_in_executor(None, scraper.scrape_amazon_live, search)
+        # For version 3.0, we ALWAYS use live scraping if search is provided
+        # If no search is provided, we use default keywords to show some products
+        query_term = search or category or "coffee"
 
-            combined = []
-            max_len = max(len(jumia_data), len(amazon_data))
-            for i in range(max_len):
-                if i < len(jumia_data): combined.append(jumia_data[i])
-                if i < len(amazon_data): combined.append(amazon_data[i])
+        print(f"[*] Triggering Live Search for: {query_term}")
+        loop = asyncio.get_event_loop()
 
-            for i, item in enumerate(combined):
-                item["Sr No"] = i + 1 + offset
-
-            return combined[:limit]
-
-        sb = get_supabase()
-        query = sb.table("product_prices").select(
-            "*, product:products(*, category:categories(*)), store:stores(*)"
+        # Scrape concurrently
+        jumia_data, amazon_data = await asyncio.gather(
+            loop.run_in_executor(None, scraper.scrape_jumia_live, query_term),
+            loop.run_in_executor(None, scraper.scrape_amazon_live, query_term)
         )
 
-        if search: query = query.ilike("product.name_en", f"%{search}%")
-        if category: query = query.ilike("product.category.name_en", f"%{category}%")
-        if brand: query = query.ilike("product.brand", f"%{brand}%")
-        if store: query = query.ilike("store.name_en", f"%{store}%")
+        # Combine and interleave
+        combined = []
+        max_len = max(len(jumia_data), len(amazon_data))
+        for i in range(max_len):
+            if i < len(jumia_data): combined.append(jumia_data[i])
+            if i < len(amazon_data): combined.append(amazon_data[i])
 
-        query = query.range(offset, offset + 100)
-        response = query.execute()
-        data = response.data
+        # Filter by store if requested
+        if store:
+            combined = [item for item in combined if store.lower() in item["Store Name"].lower()]
 
-        if not data: return []
+        # Re-index Sr No
+        for i, item in enumerate(combined):
+            item["Sr No"] = i + 1 + offset
 
-        valid_data = [item for item in data if item.get("product")]
-        valid_data.sort(key=lambda x: (x.get("product", {}).get("image_url") is not None), reverse=True)
-
-        result = [transform_product_price(item, i + offset) for i, item in enumerate(valid_data[:limit])]
-        return result
+        return combined[:limit]
 
     except Exception as e:
-        import traceback
-        return {"error": str(e), "trace": traceback.format_exc() if os.environ.get("DEBUG") else None}
+        return {"error": str(e)}
 
 @app.get("/categories")
 async def get_categories():
-    try:
-        sb = get_supabase()
-        res = sb.table("categories").select("*").execute()
-        return res.data
-    except Exception as e:
-        return {"error": str(e)}
+    return [
+        {"id": 1, "name_en": "Electronics & Tech"},
+        {"id": 2, "name_en": "Home Appliances"},
+        {"id": 3, "name_en": "Groceries & Food"},
+        {"id": 4, "name_en": "Personal Care & Beauty"},
+        {"id": 5, "name_en": "Fashion & Clothing"}
+    ]
 
 @app.get("/stores")
 async def get_stores():
-    try:
-        sb = get_supabase()
-        res = sb.table("stores").select("*").execute()
-        return res.data
-    except Exception as e:
-        return {"error": str(e)}
+    return [
+        {"id": 1, "name_en": "Amazon", "location": "Online"},
+        {"id": 2, "name_en": "Jumia", "location": "Online"},
+        {"id": 3, "name_en": "Carrefour", "location": "Egypt Wide"},
+        {"id": 4, "name_en": "Noon", "location": "Online"}
+    ]
 
 if __name__ == "__main__":
     import uvicorn
