@@ -12,12 +12,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# Constants for Supabase
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mgqcolwglaavwazjwjir.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
-
+# Initialize client outside of endpoints for efficiency
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def transform_product_price(item, index: int):
@@ -34,9 +33,6 @@ def transform_product_price(item, index: int):
     discount_pct = item.get("discount_percent")
 
     # Logic for Price and MRP
-    # If price is missing but MRP exists, price = MRP (no discount)
-    # If both missing, set to "N/A"
-
     final_price = float(price_val) if price_val is not None else "N/A"
     final_mrp = float(mrp_val) if mrp_val is not None else (final_price if final_price != "N/A" else "N/A")
 
@@ -56,7 +52,6 @@ def transform_product_price(item, index: int):
         "Price": final_price,
         "Description": product.get("description_en") or "N/A",
         "Product Image URL": product.get("image_url") or "N/A",
-        # Extra fields requested in the text requirements
         "Store Name": store.get("name_en") or "N/A",
         "Location": store.get("location_name_en") or "N/A",
         "Availability Status": "In Stock" if item.get("is_available") else "Out of Stock"
@@ -84,12 +79,10 @@ async def get_products(
     offset: int = 0
 ):
     try:
-        # Complex join query
         query = supabase.table("product_prices").select(
             "*, product:products(*, category:categories(*)), store:stores(*)"
         )
 
-        # In Supabase, we can filter on joined tables using dot notation
         if search:
             query = query.ilike("product.name_en", f"%{search}%")
 
@@ -102,10 +95,7 @@ async def get_products(
         if store:
             query = query.ilike("store.name_en", f"%{store}%")
 
-        # Ordering by update time or price could be added here
         query = query.order("updated_at", desc=True)
-
-        # Pagination
         query = query.range(offset, offset + limit - 1)
 
         response = query.execute()
