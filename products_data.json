@@ -1,0 +1,34 @@
+[
+  {
+    "Product URL": "https://www.carrefouregypt.com/mafegy/en/p/99999",
+    "Product ID": 99999,
+    "Product Name": "Carrefour Fresh Item",
+    "Category": "Home | Fresh Food",
+    "Brand": "Carrefour",
+    "MRP (EGP)": 100,
+    "Price": 90,
+    "Discount %": 10,
+    "Description": "Fresh item from Carrefour Egypt. Available for same day delivery.",
+    "Product Image URL": "https://cdn.mafrservices.com/pim-content/EGY/media/product/99999/main.jpg",
+    "Store Name": "Carrefour Egypt",
+    "Availability Status": "In Stock",
+    "Location": "Cairo / Giza",
+    "Sr No": 1
+  },
+  {
+    "Product URL": "https://www.noon.com/egypt-en/p-12345",
+    "Product ID": 12345,
+    "Product Name": "Noon Premium Product",
+    "Category": "Home | Supermarket",
+    "Brand": "Noon",
+    "MRP (EGP)": 500,
+    "Price": 450,
+    "Discount %": 10,
+    "Description": "Premium product from Noon Egypt. Best price guaranteed.",
+    "Product Image URL": "https://z.nooncdn.com/products/tr:n-t_240/v1605814144/N41247601A_1.jpg",
+    "Store Name": "Noon Egypt",
+    "Availability Status": "In Stock",
+    "Location": "Online",
+    "Sr No": 2
+  }
+]

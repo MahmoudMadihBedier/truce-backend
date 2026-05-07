@@ -1,24 +1,28 @@
 import os
-import random
-import asyncio
-from typing import List, Optional, Union
+import json
+from typing import List, Optional
 from fastapi import FastAPI, Query, HTTPException
 from dotenv import load_dotenv
-
-# Import our live scrapers
-import scraper
 
 load_dotenv()
 
 app = FastAPI(
     title="Truce API",
-    description="Backend API with Live Real-time Scraping for the Egyptian Market",
+    description="Backend API for Truce mobile app - Egyptian Market Price Tracker",
     version="3.0.0"
 )
 
+# Load data from the local JSON file
+def load_products_data():
+    file_path = os.path.join(os.path.dirname(__file__), "products_data.json")
+    if not os.path.exists(file_path):
+        return []
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 @app.get("/")
 def read_root():
-    return {"message": "Truce API v3.0.0 - Pure Live Scraping (No Database)"}
+    return {"message": "Welcome to the Truce API - Egyptian Market tracker"}
 
 @app.get("/products")
 async def get_products(
@@ -30,56 +34,53 @@ async def get_products(
     offset: int = 0
 ):
     try:
-        # For version 3.0, we ALWAYS use live scraping if search is provided
-        # If no search is provided, we use default keywords to show some products
-        query_term = search or category or "coffee"
+        products = load_products_data()
 
-        print(f"[*] Triggering Live Search for: {query_term}")
-        loop = asyncio.get_event_loop()
+        # Filtering logic
+        filtered_products = products
 
-        # Scrape concurrently
-        jumia_data, amazon_data = await asyncio.gather(
-            loop.run_in_executor(None, scraper.scrape_jumia_live, query_term),
-            loop.run_in_executor(None, scraper.scrape_amazon_live, query_term)
-        )
+        if search:
+            search = search.lower()
+            filtered_products = [p for p in filtered_products if search in p["Product Name"].lower() or search in p["Description"].lower()]
 
-        # Combine and interleave
-        combined = []
-        max_len = max(len(jumia_data), len(amazon_data))
-        for i in range(max_len):
-            if i < len(jumia_data): combined.append(jumia_data[i])
-            if i < len(amazon_data): combined.append(amazon_data[i])
+        if category:
+            category = category.lower()
+            filtered_products = [p for p in filtered_products if category in p["Category"].lower()]
 
-        # Filter by store if requested
+        if brand:
+            brand = brand.lower()
+            filtered_products = [p for p in filtered_products if brand in p["Brand"].lower()]
+
         if store:
-            combined = [item for item in combined if store.lower() in item["Store Name"].lower()]
+            store = store.lower()
+            filtered_products = [p for p in filtered_products if store in p["Store Name"].lower()]
 
-        # Re-index Sr No
-        for i, item in enumerate(combined):
-            item["Sr No"] = i + 1 + offset
+        # Pagination
+        results = filtered_products[offset : offset + limit]
 
-        return combined[:limit]
+        # Ensure Sr No is correct for the current result set
+        for i, p in enumerate(results):
+            p["Sr No"] = i + 1 + offset
+
+        return results
 
     except Exception as e:
         return {"error": str(e)}
 
 @app.get("/categories")
 async def get_categories():
-    return [
-        {"id": 1, "name_en": "Electronics & Tech"},
-        {"id": 2, "name_en": "Home Appliances"},
-        {"id": 3, "name_en": "Groceries & Food"},
-        {"id": 4, "name_en": "Personal Care & Beauty"},
-        {"id": 5, "name_en": "Fashion & Clothing"}
-    ]
+    products = load_products_data()
+    # Extract unique categories
+    categories = sorted(list(set([p["Category"] for p in products])))
+    return [{"id": i+1, "name": cat} for i, cat in enumerate(categories)]
 
 @app.get("/stores")
 async def get_stores():
     return [
-        {"id": 1, "name_en": "Amazon", "location": "Online"},
-        {"id": 2, "name_en": "Jumia", "location": "Online"},
-        {"id": 3, "name_en": "Carrefour", "location": "Egypt Wide"},
-        {"id": 4, "name_en": "Noon", "location": "Online"}
+        {"name": "Jumia Egypt", "url": "https://www.jumia.com.eg"},
+        {"name": "Amazon Egypt", "url": "https://www.amazon.eg"},
+        {"name": "Noon Egypt", "url": "https://www.noon.com/egypt-en/"},
+        {"name": "Carrefour Egypt", "url": "https://www.carrefouregypt.com"}
     ]
 
 if __name__ == "__main__":
