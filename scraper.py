@@ -10,7 +10,7 @@ load_dotenv()
 
 # SUPABASE CONFIG
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mgqcolwglaavwazjwjir.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_52t3OZTL4k39wQf8DfrH_g_X7n73_vE")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ncWNvbHdnbGFhdndhemp3amlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzM0MTUsImV4cCI6MjA5MjM0OTQxNX0.V_Y6Of9rIPqwHCanKgpYNRcFAOWClfFiSPgG5MUF1VM")
 
 _supabase_client = None
 
@@ -32,7 +32,7 @@ def sync_to_db(items, store_id):
     try:
         if not items: return
         sb = get_supabase()
-        for item in items[:5]: # Only sync top 5 to save time in serverless
+        for item in items[:5]:
             product_data = {
                 "name_en": item["Product Name"],
                 "category_id": 3,
